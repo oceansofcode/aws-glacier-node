@@ -4,8 +4,9 @@
   "description": "personal AWS",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "archive": "ts-node archive"
+    "test": "echo 'no tests'",
+    "build": "tsc",
+    "run": "ts-node archive"
   },
   "author": "",
   "license": "ISC",

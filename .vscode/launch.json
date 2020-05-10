@@ -12,10 +12,11 @@
             "skipFiles": [
                 "<node_internals>/**"
             ],
-            "program": "${workspaceFolder}/src/archive/archive.ts",
+            "program": "${workspaceFolder}/archive.ts",
+            "preLaunchTask": "npm: build",
             "outFiles": [
-                "${workspaceFolder}/dist/**/*.js"
+                "${workspaceFolder}/archive.js"
             ]
-        }
+        },
     ]
 }
