@@ -1,12 +1,12 @@
 {
   "name": "aws",
   "version": "1.0.0",
-  "description": "personal AWS",
+  "description": "AWS Glacier interface in TypeScript",
   "main": "index.js",
   "scripts": {
     "test": "echo 'no tests'",
     "build": "tsc",
-    "run": "ts-node archive"
+    "start": "ts-node archive"
   },
   "author": "",
   "license": "ISC",
