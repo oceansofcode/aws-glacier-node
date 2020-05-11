@@ -2,7 +2,7 @@
   "name": "aws",
   "version": "1.0.0",
   "description": "AWS Glacier interface in TypeScript",
-  "main": "index.js",
+  "main": "archive.js",
   "scripts": {
     "test": "echo 'no tests'",
     "build": "tsc",
