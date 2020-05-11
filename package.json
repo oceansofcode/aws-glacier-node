@@ -1,5 +1,5 @@
 {
-  "name": "aws",
+  "name": "aws-glacier-node",
   "version": "1.0.0",
   "description": "AWS Glacier interface in TypeScript",
   "main": "archive.js",
@@ -8,8 +8,8 @@
     "build": "tsc",
     "start": "ts-node archive"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Adam",
+  "license": "GPLv3",
   "devDependencies": {
     "@types/aws-sdk": "^2.7.0",
     "@types/node": "^13.13.5",
