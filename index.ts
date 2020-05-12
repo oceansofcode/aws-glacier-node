@@ -1,7 +1,6 @@
 import { config } from 'aws-sdk';
 import archiveConfig from './archive-config.json';
 import { updateArchive } from './modules/write';
-import { Archive } from './modules/local-archives';
 
 config.update({ region: archiveConfig.region });
 
