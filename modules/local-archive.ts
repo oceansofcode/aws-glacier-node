@@ -1,25 +1,20 @@
 import fs, { ReadStream } from 'fs';
+import { Archive } from './archive';
 
-export class LocalArchive {
-    static readonly oneByte = 2 ** 10;
-    static readonly chunkSize = LocalArchive.oneByte ** 2;
+export class LocalArchive extends Archive {
+    private archiveReadStream: ReadStream;
 
-    private static readonly completedEvent = 'completedEvent';
-
-    private uploadId: string;
-    private fileReadStream: ReadStream;
-
-    private chunkIndex: number;
     private uploadIndex: number;
     private buffers: Buffer[] = [];
     private fileSize = 0n;
 
-    private get uploadComplete(): boolean {
-        return this.chunkIndex === this.uploadIndex && (this.chunkIndex !== 0 && this.uploadIndex !== 0);
+    private get buffersRead(): number {
+        return this.buffers.length;
     }
 
     constructor(private archivePath: string) {
-        this.fileReadStream = fs.createReadStream(archivePath);
+        super();
+        this.archiveReadStream = fs.createReadStream(archivePath, { highWaterMark: LocalArchive.chunkSize });
     }
 
     public static async getLocalArchivePaths(archiveRoot: string): Promise<string[]> {
@@ -39,18 +34,17 @@ export class LocalArchive {
         return archivePaths;
     }
 
-    public async readArchive(): Promise<void> {
+    public async readArchiveParts(): Promise<void> {
         let rangeBottom = 0, rangeTop = LocalArchive.chunkSize - 1;
-        for await (const chunk of this.fileReadStream) {
+        for await (const chunk of this.archiveReadStream) {
             const body = chunk as Buffer;
             // eslint-disable-next-line no-undef
             const bodySize = BigInt(body.length);
-            //const checksum = glacier.computeChecksums(body).treeHash;
 
             this.buffers.push(body);
             this.fileSize = this.fileSize + bodySize;
 
-            if (this.chunkIndex > 0) {
+            if (this.buffersRead > 0) {
                 rangeBottom = rangeTop + 1;
                 rangeTop = rangeBottom + body.length - 1;
             }
