@@ -2,5 +2,5 @@ awsdemo1.pem
 *config.json
 dist
 node_modules
-archive.js
-archive.js.map
+**/*.js
+**/*.js.map

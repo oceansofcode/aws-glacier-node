@@ -2,17 +2,26 @@
   "name": "aws-glacier-node",
   "version": "1.0.0",
   "description": "AWS Glacier interface in TypeScript",
-  "main": "archive.js",
+  "main": "index.js",
   "scripts": {
     "test": "echo 'no tests'",
     "build": "tsc",
-    "start": "ts-node archive"
+    "start": "ts-node index"
   },
   "author": "Adam",
   "license": "GPLv3",
   "devDependencies": {
     "@types/aws-sdk": "^2.7.0",
     "@types/node": "^13.13.5",
+    "@typescript-eslint/eslint-plugin": "^2.32.0",
+    "@typescript-eslint/parser": "^2.32.0",
+    "eslint": "^7.0.0",
+    "eslint-config-standard": "^14.1.1",
+    "eslint-plugin-import": "^2.20.2",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^4.2.1",
+    "eslint-plugin-standard": "^4.0.1",
+    "json-schema": "^0.2.5",
     "ts-node": "^8.10.1",
     "typescript": "^3.8.3"
   },

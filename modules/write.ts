@@ -1,49 +1,10 @@
-import AWS, { Glacier } from 'aws-sdk';
-import fs, { promises as fsPromises } from 'fs';
-import { promisify } from 'util';
-import archiveConfig from './archive-config.json';
+import { Glacier } from 'aws-sdk';
+import fs from 'fs';
 
-AWS.config.update({ region: archiveConfig.region });
+const glacier = new Glacier();
 
-AWS.config.getCredentials(err => {
-    console.log(`Region: ${AWS.config.region}`);
-    err ? console.log(err.stack) : console.log(`Access Key: ${AWS.config.credentials.accessKeyId}`);
-    err ? null : updateArchive().then(() => console.log('Finished Updating Archive')).catch(err => console.log('Error updating archive', err));
-});
+export async function updateArchive(): Promise<void> {
 
-async function readArchive(): Promise<string[]> {
-    const archiveRoot = archiveConfig.archiveRoot;
-    const pExists = promisify(fs.exists);
-
-    const archiveExists = await pExists(archiveRoot);
-
-    if (archiveExists) {
-        return await getAllArchivePaths(archiveRoot);
-    } else {
-        throw 'Archive does not exist';
-    }
-}
-
-async function getAllArchivePaths(archiveRoot: string): Promise<string[]> {
-    const archivePaths = [];
-    const dir = await fs.promises.opendir(archiveRoot);
-
-    for await (let item of dir) {
-        const itemPath = `${archiveRoot}/${item.name}`
-        if (item.isDirectory()) {
-            const subDirPaths = await getAllArchivePaths(itemPath);
-            subDirPaths.forEach(subDirPath => archivePaths.push(subDirPath));
-        } else {
-            archivePaths.push(itemPath);
-        }
-    }
-
-    return archivePaths;
-}
-
-async function updateArchive(): Promise<void> {
-    //const archives = await readArchive();
-    const glacier = new Glacier();
     const oneByte = 2 ** 10;
     const chonkSize = oneByte ** 2;
 
@@ -54,15 +15,16 @@ async function updateArchive(): Promise<void> {
         accountId: '-',
         vaultName: 'Kotor2',
         partSize: chonkSize.toString()
-    }
+    };
 
-    let uploadId = (await glacier.initiateMultipartUpload(initiateMultiPartParams).promise()).uploadId;
+    const uploadId = (await glacier.initiateMultipartUpload(initiateMultiPartParams).promise()).uploadId;
 
     let rangeBottom = 0, rangeTop = chonkSize - 1, chunkIndex = 0, uploadIndex = 0;
-    let fullFileSize: bigint = 0n;
-    let bufferList: Buffer[] = [];
-    for await (let chunk of kotor2) {
+    let fullFileSize = 0n;
+    const bufferList: Buffer[] = [];
+    for await (const chunk of kotor2) {
         const body = chunk as Buffer;
+        // eslint-disable-next-line no-undef
         const bodySize = BigInt(body.length);
         const checksum = glacier.computeChecksums(body).treeHash;
 
@@ -82,7 +44,7 @@ async function updateArchive(): Promise<void> {
             body,
             checksum,
             range
-        }
+        };
 
         glacier.uploadMultipartPart(multiPartParams).promise().then(() => console.log(uploadIndex++));
 
@@ -90,7 +52,7 @@ async function updateArchive(): Promise<void> {
     }
 
     // Replace with event emitter
-    let uploadFinished = new Promise((res, rej) => {
+    const uploadFinished = new Promise(res => {
         const checkUploadFinished = setInterval(() => {
             if (uploadIndex === chunkIndex) {
                 res();
@@ -106,7 +68,7 @@ async function updateArchive(): Promise<void> {
         vaultName: 'Kotor2',
         archiveSize: fullFileSize.toString(),
         checksum: fullChecksum
-    }
+    };
 
     uploadFinished.then(async () => {
         console.log(`Checksum: ${fullChecksum}`);
@@ -116,5 +78,4 @@ async function updateArchive(): Promise<void> {
                 glacier.abortMultipartUpload({ vaultName: 'Kotor2', uploadId, accountId: '-' }).promise().then(() => console.log('Aborted upload'));
             });
     });
-
 }
