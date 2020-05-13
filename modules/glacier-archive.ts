@@ -1,28 +1,24 @@
 import { Glacier } from 'aws-sdk';
 import { Archive } from './archive';
+import { accountId } from './glacier-config';
 
-export type glacierInit = Required<Glacier.InitiateMultipartUploadInput>;
-export type glacierUploadPart = Required<Glacier.UploadMultipartPartInput>;
-export type glacierCompleteUpload = Glacier.CompleteMultipartUploadInput;
-export type glacierAbortUpload = Required<Glacier.AbortMultipartUploadInput>;
+export type GlacierInitParams = Required<Glacier.InitiateMultipartUploadInput>;
+export type GlacierUploadPartParams = Required<Glacier.UploadMultipartPartInput>;
+export type GlacierCompleteUploadParams = Required<Glacier.CompleteMultipartUploadInput>;
+export type GlacierAbortUploadParams = Required<Glacier.AbortMultipartUploadInput>;
 
 export class GlacierArchive extends Archive {
 
     private archiveChecksum: string;
     private uploadId: string;
-    private vaultName: string;
 
-    constructor(private glacier: Glacier) {
+    constructor(private glacier: Glacier, private vaultName: string, private archiveId?: string) {
         super();
     }
 
-    public static listArchives(glacier: Glacier): Promise<string[]> {
-        return null;
-    }
-
-    public async initiateUpload(): void {
-        const initParams: glacierInit = {
-            accountId: '-',
+    public async initiateUpload(): Promise<void> {
+        const initParams: GlacierInitParams = {
+            accountId,
             archiveDescription: 'fix this',
             partSize: Archive.chunkSize.toString(),
             vaultName: this.vaultName,
@@ -32,8 +28,8 @@ export class GlacierArchive extends Archive {
     }
 
     public uploadArchivePart(part: Buffer, range: string): void {
-        const partInfo: glacierUploadPart = {
-            accountId: '-',
+        const partInfo: GlacierUploadPartParams = {
+            accountId,
             uploadId: this.uploadId,
             vaultName: this.vaultName,
             body: part,
@@ -44,11 +40,21 @@ export class GlacierArchive extends Archive {
         this.glacier.uploadMultipartPart(partInfo, () => console.log('do something'));
     }
 
-    public
+    public completeArchiveUpload(): void {
+        const completeUploadInfo: GlacierCompleteUploadParams = {
+            accountId,
+            uploadId: this.uploadId,
+            vaultName: this.vaultName,
+            checksum: this.archiveChecksum,
+            archiveSize: null
+        };
 
-    public abortGlacierUpload(): void {
-        const abortConfig: glacierAbortUpload = {
-            accountId: '-',
+        // get archiveId from the return value
+    }
+
+    public abortArchiveUpload(): void {
+        const abortConfig: GlacierAbortUploadParams = {
+            accountId,
             uploadId: this.uploadId,
             vaultName: this.vaultName
         };

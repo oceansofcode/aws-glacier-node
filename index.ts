@@ -1,14 +1,34 @@
 import { config } from 'aws-sdk';
 import archiveConfig from './archive-config.json';
-import { updateArchive } from './modules/write';
+import { Glacier } from 'aws-sdk';
+import { GlacierVault } from './modules/glacier-vault';
+import https from 'https';
+import colors from 'colors';
 
-config.update({ region: archiveConfig.region });
+const agent = new https.Agent({
+    maxSockets: Infinity,
+    keepAlive: true
+});
 
-config.getCredentials(err => {
+config.update({
+    region: archiveConfig.region,
+    httpOptions: { agent }
+});
+
+config.logger = console;
+
+config.getCredentials(async err => {
     if (!err) {
-        console.log(`Access Key: ${config.credentials.accessKeyId}`);
-        updateArchive().then(() => console.log('Finished Updating Archive')).catch(err => console.log('Error updating archive', err));
+        console.log(`Access Key: ${colors.green(config.credentials.accessKeyId)}`);
+
+        const glacier = new Glacier();
+        const glacierVaults = await GlacierVault.listVaults(glacier);
+
+        const kotor2TestVault = new GlacierVault(glacier, glacierVaults[0]);
+        const req = await kotor2TestVault.listVaultJobs();
+        console.log(req);
     } else {
         console.error(err.stack);
     }
 });
+
