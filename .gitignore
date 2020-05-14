@@ -3,3 +3,5 @@ dist
 node_modules
 **/*.js
 **/*.js.map
+inventories
+jobs

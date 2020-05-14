@@ -1,7 +1,7 @@
 import { promisify } from 'util';
 import fs from 'fs';
 import archiveConfig from '../archive-config.json';
-import { LocalArchive } from './local-archive';
+import { LocalArchive } from './archive/local-archive';
 
 export async function readLocalArchive(): Promise<string[]> {
     const archiveRoot = archiveConfig.archiveRoot;

@@ -1,6 +1,6 @@
 import { Glacier } from 'aws-sdk';
 import { Archive } from './archive';
-import { accountId } from './glacier-config';
+import { accountId } from '../glacier-config';
 
 export type GlacierInitParams = Required<Glacier.InitiateMultipartUploadInput>;
 export type GlacierUploadPartParams = Required<Glacier.UploadMultipartPartInput>;
