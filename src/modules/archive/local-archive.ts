@@ -1,10 +1,11 @@
 import fs, { promises as fsPromises, ReadStream } from 'fs';
-import { Archive } from './archive';
+import * as GlacierConfig from '../glacier-config';
 
-export class LocalArchive extends Archive {
+declare function BigInt(number: number): bigint;
+
+export class LocalArchive {
     private archiveReadStream: ReadStream;
 
-    private uploadIndex: number;
     private buffers: Buffer[] = [];
     private fileSize = 0n;
 
@@ -13,7 +14,6 @@ export class LocalArchive extends Archive {
     }
 
     constructor(private archivePath: string) {
-        super();
     }
 
     public static async getLocalArchives(archiveRoot: string): Promise<Map<string, string>> {
@@ -33,23 +33,32 @@ export class LocalArchive extends Archive {
         return archives;
     }
 
-    public async readArchiveParts(): Promise<void> {
-        let rangeBottom = 0, rangeTop = LocalArchive.chunkSize - 1;
-        this.archiveReadStream = fs.createReadStream(this.archivePath, { highWaterMark: LocalArchive.chunkSize });
-        for await (const chunk of this.archiveReadStream) {
-            const body = chunk as Buffer;
-            // eslint-disable-next-line no-undef
-            const bodySize = BigInt(body.length);
+    public async readArchiveParts(uploadArchivePart: (part: Buffer, ranges: { rangeBottom: number; rangeTop: number }) => void, errorFunc: () => void): Promise<void> {
+        let rangeBottom = 0, rangeTop = GlacierConfig.chunkSize - 1;
+        try {
+            this.archiveReadStream = fs.createReadStream(this.archivePath, { highWaterMark: GlacierConfig.chunkSize });
 
-            this.buffers.push(body);
-            this.fileSize = this.fileSize + bodySize;
+            for await (const chunk of this.archiveReadStream) {
+                const body = chunk as Buffer;
+                const bodySize = BigInt(body.length);
 
-            if (this.buffersRead > 0) {
-                rangeBottom = rangeTop + 1;
-                rangeTop = rangeBottom + body.length - 1;
+                this.buffers.push(body);
+                this.fileSize = this.fileSize + bodySize;
+
+                if (this.buffersRead > 0) {
+                    rangeBottom = rangeTop + 1;
+                    rangeTop = rangeBottom + body.length - 1;
+                }
+
+                uploadArchivePart(body, { rangeBottom, rangeTop });
             }
 
-            const range = `bytes ${rangeBottom}-${rangeTop}/*`;
+            console.log('Finished reading');
+            console.log(this.fileSize);
+        } catch (error) {
+            console.error('Error in reading file', error);
+            errorFunc();
         }
+
     }
 }

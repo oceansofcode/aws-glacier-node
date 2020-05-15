@@ -1,6 +1,6 @@
 import { Glacier } from 'aws-sdk';
-import { Archive } from './archive';
 import { accountId } from '../glacier-config';
+import * as GlacierConfig from '../glacier-config';
 
 export type MultiUploadInitParams = Required<Glacier.InitiateMultipartUploadInput>;
 export type UploadPartParams = Required<Glacier.UploadMultipartPartInput>;
@@ -8,48 +8,72 @@ export type CompleteUploadParams = Required<Glacier.CompleteMultipartUploadInput
 export type AbortUploadParams = Required<Glacier.AbortMultipartUploadInput>;
 export type DeleteGlacierArchiveParams = Required<Glacier.DeleteArchiveInput>;
 
-export class GlacierArchive extends Archive {
+export interface GlacierArchiveInfo {
+    vaultName: string;
+    description: string;
+    archiveId?: string;
+}
 
-    private archiveChecksum: string;
-    private archiveSize: string;
+export class GlacierArchive {
+
     private uploadId: string;
+    private partsUploaded: number;
 
-    constructor(private glacier: Glacier, private vaultName: string, private archiveDescription: string, private archiveId?: string) {
-        super();
+    get vaultName(): string {
+        return this.archiveInfo.vaultName;
+    }
+
+    get description(): string {
+        return this.archiveInfo.description;
+    }
+
+    get archiveId(): string {
+        return this.archiveInfo.archiveId;
+    }
+
+    set archiveId(archiveId: string) {
+        this.archiveInfo.archiveId = archiveId;
+    }
+
+    constructor(private glacier: Glacier, private archiveInfo: GlacierArchiveInfo) {
     }
 
     public async initiateArchiveMultiUpload(): Promise<void> {
         const initParams: MultiUploadInitParams = {
             accountId,
-            archiveDescription: this.archiveDescription,
-            partSize: Archive.chunkSize.toString(),
+            archiveDescription: this.archiveInfo.description,
+            partSize: GlacierConfig.chunkSize.toString(),
             vaultName: this.vaultName,
         };
 
-        const uploadInitResponse = await this.glacier.initiateMultipartUpload(initParams).promise();
-        uploadInitResponse.uploadId ? this.uploadId = uploadInitResponse.uploadId : null;
+        const uploadId = (await this.glacier.initiateMultipartUpload(initParams).promise()).uploadId;
+
+        if (uploadId) {
+            this.partsUploaded = 0;
+            this.uploadId = uploadId;
+        }
     }
 
-    public uploadArchivePart(part: Buffer, range: string): void {
+    public uploadArchivePart(part: Buffer, ranges: { rangeBottom: number; rangeTop: number }): void {
         const partInfo: UploadPartParams = {
             accountId,
             uploadId: this.uploadId,
             vaultName: this.vaultName,
             body: part,
             checksum: this.glacier.computeChecksums(part).treeHash,
-            range
+            range: `bytes ${ranges.rangeBottom}-${ranges.rangeTop}/*`
         };
 
-        this.glacier.uploadMultipartPart(partInfo);
+        this.glacier.uploadMultipartPart(partInfo, () => this.partsUploaded++);
     }
 
-    public completeArchiveUpload(): void {
+    public completeArchiveUpload(fileBuffer: Buffer[], fileSize: string): void {
         const completeUploadInfo: CompleteUploadParams = {
             accountId,
             uploadId: this.uploadId,
             vaultName: this.vaultName,
-            checksum: this.archiveChecksum,
-            archiveSize: this.archiveSize
+            checksum: this.glacier.computeChecksums(Buffer.concat(fileBuffer)).treeHash,
+            archiveSize: fileSize
         };
 
         this.glacier.completeMultipartUpload(completeUploadInfo);

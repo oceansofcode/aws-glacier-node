@@ -51,16 +51,6 @@ export async function updateArchive(): Promise<void> {
         console.log(chunkIndex++);
     }
 
-    // Replace with event emitter
-    const uploadFinished = new Promise(res => {
-        const checkUploadFinished = setInterval(() => {
-            if (uploadIndex === chunkIndex) {
-                res();
-                clearInterval(checkUploadFinished);
-            }
-        }, 500);
-    });
-
     const fullChecksum = glacier.computeChecksums(Buffer.concat(bufferList)).treeHash;
     const completeMultiPartInput: Glacier.CompleteMultipartUploadInput = {
         accountId: '-',
@@ -70,12 +60,4 @@ export async function updateArchive(): Promise<void> {
         checksum: fullChecksum
     };
 
-    uploadFinished.then(async () => {
-        console.log(`Checksum: ${fullChecksum}`);
-        await glacier.completeMultipartUpload(completeMultiPartInput).promise().then(res => console.log(`Response Checksum: ${res.checksum}`))
-            .catch(err => {
-                console.log(err);
-                glacier.abortMultipartUpload({ vaultName: 'Kotor2', uploadId, accountId: '-' }).promise().then(() => console.log('Aborted upload'));
-            });
-    });
 }
