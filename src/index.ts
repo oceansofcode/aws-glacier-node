@@ -8,7 +8,7 @@ import { LocalArchive } from './modules/archive/local-archive';
 import { GlacierVault } from './modules/vault/vault';
 
 const agent = new https.Agent({
-    maxSockets: Infinity,
+    maxSockets: 25,
     keepAlive: true
 });
 
@@ -17,8 +17,6 @@ config.update({
     httpOptions: { agent }
 });
 
-config.logger = console;
-
 config.getCredentials(async err => {
     if (!err && config.credentials) {
         console.log(`Access Key: ${colors.bgGreen(colors.black(config.credentials.accessKeyId))}\n`);
@@ -26,15 +24,17 @@ config.getCredentials(async err => {
         const glacier = new Glacier();
 
         const localArchivesInfo = await LocalArchive.getLocalArchives(archiveConfig.archiveRoot);
-        const luigiTest = localArchivesInfo.find(localArchiveInfo => localArchiveInfo.archiveName.toLowerCase().includes('luigi'));
+        const luigiTest = localArchivesInfo.find(localArchiveInfo => localArchiveInfo.archiveName.toLowerCase().includes('kotor'));
         console.log(luigiTest);
 
-        const luigiLocalArchive = new LocalArchive(luigiTest);
-        const luigiGlacierArchive = new GlacierArchive(glacier, { vaultName: luigiLocalArchive.archiveFolder, description: luigiLocalArchive.archiveName });
-        const gameCubeVault = new GlacierVault(glacier, luigiLocalArchive.archiveFolder);
+        const kotorLocalArchive = new LocalArchive(luigiTest);
+        const kotorGlacierArchive = new GlacierArchive(glacier, { vaultName: kotorLocalArchive.archiveFolder, description: kotorLocalArchive.archiveName });
+        const kotorVault = new GlacierVault(glacier, kotorLocalArchive.archiveFolder);
 
-        await luigiGlacierArchive.initiateArchiveMultiUpload();
-        await luigiLocalArchive.readArchiveParts(luigiGlacierArchive.abortArchiveUpload, luigiGlacierArchive.uploadArchivePart);
+        console.log(await kotorVault.listVaultUploads());
+
+        await kotorGlacierArchive.initiateArchiveMultiUpload();
+        await kotorLocalArchive.readArchiveParts(kotorGlacierArchive.abortArchiveUpload.bind(kotorGlacierArchive), kotorGlacierArchive.uploadArchivePart.bind(kotorGlacierArchive));
 
     } else {
         console.error(err.stack);

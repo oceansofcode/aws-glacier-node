@@ -13,6 +13,7 @@ export type VaultInfo = Required<Glacier.DescribeVaultOutput>;
 export type CreateVaultRes = Glacier.CreateVaultOutput;
 
 export type VaultJobs = Glacier.ListJobsOutput;
+export type VaultUploads = Glacier.ListMultipartUploadsOutput;
 
 export type InventoryJobRequestParams = Required<Glacier.InitiateJobInput>;
 export type InventoryJobRequest = Glacier.InitiateJobOutput;
@@ -45,6 +46,19 @@ export class GlacierVault {
         return listReturn.VaultList as VaultInfo[];
     }
 
+    public async listVaultJobs(): Promise<VaultJobs> {
+        return await this.glacier.listJobs({ accountId, vaultName: this.vaultName }).promise();
+    }
+
+    public async listVaultUploads(): Promise<VaultUploads> {
+        const listUploadsParams: VaultParams = {
+            accountId,
+            vaultName: this.vaultName
+        };
+
+        return this.glacier.listMultipartUploads(listUploadsParams).promise();
+    }
+
     public async getVaultInfo(): Promise<VaultInfo> {
         const describeVaultInput: VaultParams = {
             accountId,
@@ -52,10 +66,6 @@ export class GlacierVault {
         };
 
         return await this.glacier.describeVault(describeVaultInput).promise() as VaultInfo;
-    }
-
-    public async listVaultJobs(): Promise<VaultJobs> {
-        return await this.glacier.listJobs({ accountId, vaultName: this.vaultName }).promise();
     }
 
     public async initiateRequestVaultArchivesJob(): Promise<InventoryJobRequest> {

@@ -72,13 +72,12 @@ export class LocalArchive {
             for await (const chunk of archiveReadStream) {
                 const part = chunk as Buffer;
 
-                this.buffers.push(part);
-
                 if (this.buffersRead.length > 0) {
                     rangeBottom = rangeTop + 1;
                     rangeTop = rangeBottom + part.length - 1;
                 }
 
+                this.buffers.push(part);
                 uploadArchivePart ? uploadArchivePart(this, part, { rangeBottom, rangeTop }) : undefined;
             }
 
@@ -87,8 +86,7 @@ export class LocalArchive {
             console.error('Error in reading file', error);
             errorFunc(error);
         } finally {
-            console.log('Finished reading');
-            console.log(Buffer.concat(this.buffers).byteLength);
+            console.log(`Finished Reading ${this.localArchiveInfo.archiveName} that has fileSize: ${Buffer.concat(this.buffers).byteLength}`);
         }
 
     }

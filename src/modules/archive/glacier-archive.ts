@@ -3,6 +3,7 @@ import { accountId } from '../glacier-config';
 import * as GlacierConfig from '../glacier-config';
 import { LocalArchive } from './local-archive';
 import { promises as fsPromises } from 'fs';
+import colors from 'colors';
 
 export type MultiUploadInitParams = Required<Glacier.InitiateMultipartUploadInput>;
 export type UploadPartParams = Required<Glacier.UploadMultipartPartInput>;
@@ -15,8 +16,6 @@ export interface GlacierArchiveInfo {
     description: string;
     archiveId?: string;
 }
-
-export const partUploaded = Symbol('Part Uploaded');
 
 export class GlacierArchive {
 
@@ -42,7 +41,7 @@ export class GlacierArchive {
     constructor(private glacier: Glacier, private archiveInfo: GlacierArchiveInfo) {
     }
 
-    public async initiateArchiveMultiUpload(): Promise<void> {
+    public async initiateArchiveMultiUpload(): Promise<string> {
         const initParams: MultiUploadInitParams = {
             accountId,
             archiveDescription: this.archiveInfo.description,
@@ -56,59 +55,75 @@ export class GlacierArchive {
             this.partsUploaded = 0;
             this.uploadId = uploadId;
             console.log(uploadId);
+        } else {
+            throw new Error('Could not get an upload ID');
         }
+
+        return uploadId;
     }
 
     public uploadArchivePart(localArchive: LocalArchive, part: Buffer, ranges: { rangeBottom: number; rangeTop: number }): void {
+        const range = `bytes ${ranges.rangeBottom}-${ranges.rangeTop}/*`;
         const partInfo: UploadPartParams = {
             accountId,
             uploadId: this.uploadId,
             vaultName: this.vaultName,
             body: part,
             checksum: this.glacier.computeChecksums(part).treeHash,
-            range: `bytes ${ranges.rangeBottom}-${ranges.rangeTop}/*`
+            range
         };
 
-        this.glacier.uploadMultipartPart(partInfo, (err, data) => {
+        this.glacier.uploadMultipartPart(partInfo, async (err, data) => {
+            this.partsUploaded++;
+            console.log(`Range: ${range}
+            Parts Checksum: ${data.checksum}
+            Parts Read: ${localArchive.buffersRead.length}
+            Parts Uploaded: ${++this.partsUploaded}
+            All Parts Read: ${localArchive.finishedReading}`);
             if (err) {
+                await this.abortArchiveUpload(this.uploadId);
                 throw new Error(`AWS Error on upload: Name: ${err.name}, HTTP Code: ${err.statusCode}, Error Code: ${err.code}`);
-            } else if (localArchive.finishedReading && localArchive.buffersRead.length === ++this.partsUploaded) {
-                this.completeArchiveUpload(localArchive.buffersRead, Buffer.concat(localArchive.buffersRead).byteLength.toString());
+            } else if (localArchive.finishedReading && localArchive.buffersRead.length === this.partsUploaded) {
+                console.log(colors.green('All Parts Uploaded\n'));
+                this.completeArchiveUpload(localArchive.buffersRead);
             }
         });
     }
 
-    public completeArchiveUpload(fileBuffer: Buffer[], fileSize: string): void {
+    public completeArchiveUpload(fileBuffer: Buffer[]): void {
+        console.log(colors.green('Attempting to complete upload\n'));
+
         const completeUploadInfo: CompleteUploadParams = {
             accountId,
             uploadId: this.uploadId,
             vaultName: this.vaultName,
             checksum: this.glacier.computeChecksums(Buffer.concat(fileBuffer)).treeHash,
-            archiveSize: fileSize
+            archiveSize: Buffer.concat(fileBuffer).byteLength.toString()
         };
 
         this.glacier.completeMultipartUpload(completeUploadInfo).promise().then(async res => {
             const output = `Archive Uploaded: ${this.description}
-            Archive Id: ${res.archiveId}
-            Date: ${new Date()}\n`;
+                            Archive Id: ${res.archiveId}
+                            Date: ${new Date()}\n`;
 
             console.log(output);
 
-            const vaultFile = await fsPromises.open(`/vaults/${this.vaultName}`, 'w');
-            await vaultFile.appendFile(output);
-            await vaultFile.close();
+            await fsPromises.appendFile(`/vaults/${this.vaultName}`, output);
+        }).catch(err => {
+            console.log('Error occured while completing upload', err);
+            this.abortArchiveUpload(this.uploadId);
         });
     }
 
-    public abortArchiveUpload(): void {
+    public async abortArchiveUpload(uploadId: string): Promise<void> {
         const abortConfig: AbortUploadParams = {
             accountId,
-            uploadId: this.uploadId,
+            uploadId,
             vaultName: this.vaultName
         };
 
         this.uploadId = '';
-        this.glacier.abortMultipartUpload(abortConfig, () => console.log(`Aborted upload with ID: ${this.uploadId}`));
+        this.glacier.abortMultipartUpload(abortConfig, res => console.log(`Aborted upload with ID: ${uploadId}`, res?.statusCode));
     }
 
     public deleteArchive(): void {
