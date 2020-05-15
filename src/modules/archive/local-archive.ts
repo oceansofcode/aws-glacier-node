@@ -8,12 +8,21 @@ export class LocalArchive {
 
     private buffers: Buffer[] = [];
     private fileSize = 0n;
+    private readComplete = false;
 
-    private get buffersRead(): number {
-        return this.buffers.length;
+    get buffersRead(): Buffer[] {
+        return Array.from(this.buffers);
     }
 
-    constructor(private archivePath: string) {
+    get finishedReading(): boolean {
+        return this.readComplete;
+    }
+
+    get archivePath(): string {
+        return `${this.archiveFolder}/${this.archiveName}`;
+    }
+
+    constructor(private archiveName: string, private archiveFolder: string) {
     }
 
     public static async getLocalArchives(archiveRoot: string): Promise<Map<string, string>> {
@@ -33,28 +42,31 @@ export class LocalArchive {
         return archives;
     }
 
-    public async readArchiveParts(uploadArchivePart: (part: Buffer, ranges: { rangeBottom: number; rangeTop: number }) => void, errorFunc: () => void): Promise<void> {
+    public async readArchiveParts(errorFunc: () => void, uploadArchivePart?: (localArchive: LocalArchive, part: Buffer, ranges: { rangeBottom: number; rangeTop: number }) => void): Promise<void> {
         let rangeBottom = 0, rangeTop = GlacierConfig.chunkSize - 1;
         try {
             this.archiveReadStream = fs.createReadStream(this.archivePath, { highWaterMark: GlacierConfig.chunkSize });
 
             for await (const chunk of this.archiveReadStream) {
-                const body = chunk as Buffer;
-                const bodySize = BigInt(body.length);
+                const part = chunk as Buffer;
+                const partSize = BigInt(part.length);
 
-                this.buffers.push(body);
-                this.fileSize = this.fileSize + bodySize;
+                this.buffers.push(part);
+                this.fileSize = this.fileSize + partSize;
 
-                if (this.buffersRead > 0) {
+                if (this.buffersRead.length > 0) {
                     rangeBottom = rangeTop + 1;
-                    rangeTop = rangeBottom + body.length - 1;
+                    rangeTop = rangeBottom + part.length - 1;
                 }
 
-                uploadArchivePart(body, { rangeBottom, rangeTop });
+                uploadArchivePart ? uploadArchivePart(this, part, { rangeBottom, rangeTop }) : undefined;
             }
 
             console.log('Finished reading');
+            this.readComplete = true;
+
             console.log(this.fileSize);
+            console.log(Buffer.concat(this.buffers).byteLength);
         } catch (error) {
             console.error('Error in reading file', error);
             errorFunc();

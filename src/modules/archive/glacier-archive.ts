@@ -1,6 +1,8 @@
 import { Glacier } from 'aws-sdk';
 import { accountId } from '../glacier-config';
 import * as GlacierConfig from '../glacier-config';
+import { LocalArchive } from './local-archive';
+import fs, { promises as fsPromises } from 'fs';
 
 export type MultiUploadInitParams = Required<Glacier.InitiateMultipartUploadInput>;
 export type UploadPartParams = Required<Glacier.UploadMultipartPartInput>;
@@ -13,6 +15,8 @@ export interface GlacierArchiveInfo {
     description: string;
     archiveId?: string;
 }
+
+export const partUploaded = Symbol('Part Uploaded');
 
 export class GlacierArchive {
 
@@ -54,7 +58,7 @@ export class GlacierArchive {
         }
     }
 
-    public uploadArchivePart(part: Buffer, ranges: { rangeBottom: number; rangeTop: number }): void {
+    public uploadArchivePart(localArchive: LocalArchive, part: Buffer, ranges: { rangeBottom: number; rangeTop: number }): void {
         const partInfo: UploadPartParams = {
             accountId,
             uploadId: this.uploadId,
@@ -64,7 +68,11 @@ export class GlacierArchive {
             range: `bytes ${ranges.rangeBottom}-${ranges.rangeTop}/*`
         };
 
-        this.glacier.uploadMultipartPart(partInfo, () => this.partsUploaded++);
+        this.glacier.uploadMultipartPart(partInfo, () => {
+            if (localArchive.finishedReading && localArchive.buffersRead.length === ++this.partsUploaded) {
+                this.completeArchiveUpload(localArchive.buffersRead, Buffer.concat(localArchive.buffersRead).byteLength.toString());
+            }
+        });
     }
 
     public completeArchiveUpload(fileBuffer: Buffer[], fileSize: string): void {
@@ -76,7 +84,17 @@ export class GlacierArchive {
             archiveSize: fileSize
         };
 
-        this.glacier.completeMultipartUpload(completeUploadInfo);
+        this.glacier.completeMultipartUpload(completeUploadInfo).promise().then(async res => {
+            const output = `Archive Uploaded: ${this.description}
+            Archive Id: ${res.archiveId}
+            Date: ${new Date()}\n`;
+
+            console.log(output);
+
+            const vaultFile = await fsPromises.open(`/vaults/${this.vaultName}`, 'w');
+            await vaultFile.appendFile(output);
+            await vaultFile.close();
+        });
     }
 
     public abortArchiveUpload(): void {
