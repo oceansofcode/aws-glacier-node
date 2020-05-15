@@ -10,7 +10,7 @@ export async function readLocalArchive(): Promise<string[]> {
     const archiveExists = await pExists(archiveRoot);
 
     if (archiveExists) {
-        return await LocalArchive.getLocalArchivePaths(archiveRoot);
+        return await LocalArchive.getLocalArchives(archiveRoot);
     } else {
         throw 'Archive does not exist';
     }

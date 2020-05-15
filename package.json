@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo 'no tests'",
     "build": "tsc",
-    "start": "ts-node index"
+    "start": "ts-node src/index"
   },
   "author": "Adam",
   "license": "GPLv3",

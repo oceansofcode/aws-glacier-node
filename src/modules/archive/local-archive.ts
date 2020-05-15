@@ -1,4 +1,4 @@
-import fs, { ReadStream } from 'fs';
+import fs, { promises as fsPromises, ReadStream } from 'fs';
 import { Archive } from './archive';
 
 export class LocalArchive extends Archive {
@@ -14,28 +14,28 @@ export class LocalArchive extends Archive {
 
     constructor(private archivePath: string) {
         super();
-        this.archiveReadStream = fs.createReadStream(archivePath, { highWaterMark: LocalArchive.chunkSize });
     }
 
-    public static async getLocalArchivePaths(archiveRoot: string): Promise<string[]> {
-        const archivePaths = [];
-        const dir = await fs.promises.opendir(archiveRoot);
+    public static async getLocalArchives(archiveRoot: string): Promise<Map<string, string>> {
+        const archives: Map<string, string> = new Map();
+        const dir = await fsPromises.opendir(archiveRoot);
 
         for await (const item of dir) {
             const itemPath = `${archiveRoot}/${item.name}`;
             if (item.isDirectory()) {
-                const subDirPaths = await LocalArchive.getLocalArchivePaths(itemPath);
-                subDirPaths.forEach(subDirPath => archivePaths.push(subDirPath));
+                const subDirArchives = await LocalArchive.getLocalArchives(itemPath);
+                subDirArchives.forEach((value, key) => archives.set(key, value));
             } else {
-                archivePaths.push(itemPath);
+                archives.set(item.name, archiveRoot);
             }
         }
 
-        return archivePaths;
+        return archives;
     }
 
     public async readArchiveParts(): Promise<void> {
         let rangeBottom = 0, rangeTop = LocalArchive.chunkSize - 1;
+        this.archiveReadStream = fs.createReadStream(this.archivePath, { highWaterMark: LocalArchive.chunkSize });
         for await (const chunk of this.archiveReadStream) {
             const body = chunk as Buffer;
             // eslint-disable-next-line no-undef
