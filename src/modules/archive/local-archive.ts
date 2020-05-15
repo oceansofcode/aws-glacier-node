@@ -1,13 +1,14 @@
-import fs, { promises as fsPromises, ReadStream } from 'fs';
+import fs, { promises as fsPromises } from 'fs';
 import * as GlacierConfig from '../glacier-config';
-
-declare function BigInt(number: number): bigint;
+export interface LocalArchiveFileInfo {
+    archivePath?: string;
+    archiveFolder: string;
+    archiveName: string;
+}
 
 export class LocalArchive {
-    private archiveReadStream: ReadStream;
 
     private buffers: Buffer[] = [];
-    private fileSize = 0n;
     private readComplete = false;
 
     get buffersRead(): Buffer[] {
@@ -18,41 +19,60 @@ export class LocalArchive {
         return this.readComplete;
     }
 
-    get archivePath(): string {
-        return `${this.archiveFolder}/${this.archiveName}`;
+    get archiveName(): string {
+        return this.localArchiveInfo.archiveName;
     }
 
-    constructor(private archiveName: string, private archiveFolder: string) {
+    get archiveFolder(): string {
+        return this.localArchiveInfo.archiveFolder;
     }
 
-    public static async getLocalArchives(archiveRoot: string): Promise<Map<string, string>> {
-        const archives: Map<string, string> = new Map();
+    get archivePath(): string | undefined {
+        return this.localArchiveInfo.archivePath;
+    }
+
+    constructor(private localArchiveInfo: LocalArchiveFileInfo) { }
+
+    public static async getLocalArchives(archiveRoot: string): Promise<LocalArchiveFileInfo[]> {
+        let archives: LocalArchiveFileInfo[] = [];
         const dir = await fsPromises.opendir(archiveRoot);
 
         for await (const item of dir) {
             const itemPath = `${archiveRoot}/${item.name}`;
             if (item.isDirectory()) {
                 const subDirArchives = await LocalArchive.getLocalArchives(itemPath);
-                subDirArchives.forEach((value, key) => archives.set(key, value));
+                archives = archives.concat(subDirArchives);
             } else {
-                archives.set(item.name, archiveRoot);
+                archives.push(LocalArchive.createFileArchiveInfo(itemPath));
             }
         }
 
         return archives;
     }
 
-    public async readArchiveParts(errorFunc: () => void, uploadArchivePart?: (localArchive: LocalArchive, part: Buffer, ranges: { rangeBottom: number; rangeTop: number }) => void): Promise<void> {
+    public static createFileArchiveInfo(archivePath: string): LocalArchiveFileInfo {
+        const splitFoldersItems = archivePath.split('/');
+        const archiveName = splitFoldersItems[splitFoldersItems.length - 1];
+        const vaultName = splitFoldersItems[splitFoldersItems.length - 2].replace(/\s/, '_');
+
+        const fullFile: LocalArchiveFileInfo = {
+            archiveFolder: vaultName,
+            archiveName,
+            archivePath
+        };
+
+        return fullFile;
+    }
+
+    public async readArchiveParts(errorFunc: (error: unknown) => void, uploadArchivePart?: (localArchive: LocalArchive, part: Buffer, ranges: { rangeBottom: number; rangeTop: number }) => void): Promise<void> {
         let rangeBottom = 0, rangeTop = GlacierConfig.chunkSize - 1;
         try {
-            this.archiveReadStream = fs.createReadStream(this.archivePath, { highWaterMark: GlacierConfig.chunkSize });
+            const archiveReadStream = fs.createReadStream(this.archivePath, { highWaterMark: GlacierConfig.chunkSize });
 
-            for await (const chunk of this.archiveReadStream) {
+            for await (const chunk of archiveReadStream) {
                 const part = chunk as Buffer;
-                const partSize = BigInt(part.length);
 
                 this.buffers.push(part);
-                this.fileSize = this.fileSize + partSize;
 
                 if (this.buffersRead.length > 0) {
                     rangeBottom = rangeTop + 1;
@@ -62,14 +82,13 @@ export class LocalArchive {
                 uploadArchivePart ? uploadArchivePart(this, part, { rangeBottom, rangeTop }) : undefined;
             }
 
-            console.log('Finished reading');
             this.readComplete = true;
-
-            console.log(this.fileSize);
-            console.log(Buffer.concat(this.buffers).byteLength);
         } catch (error) {
             console.error('Error in reading file', error);
-            errorFunc();
+            errorFunc(error);
+        } finally {
+            console.log('Finished reading');
+            console.log(Buffer.concat(this.buffers).byteLength);
         }
 
     }

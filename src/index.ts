@@ -5,7 +5,6 @@ import { GlacierVault } from './modules/vault/vault';
 import https from 'https';
 import colors from 'colors';
 import { promises as fsPromises } from 'fs';
-import kotor2InventoryJSON from '../inventories/kotor2Stream.json';
 import { VaultInventory } from './modules/vault/vault-inventory';
 import { GlacierArchive } from './modules/archive/glacier-archive';
 import { LocalArchive } from './modules/archive/local-archive';
@@ -26,8 +25,9 @@ config.getCredentials(async err => {
     if (!err && config.credentials) {
         console.log(`Access Key: ${colors.green(config.credentials.accessKeyId)}`);
 
-        console.log(await LocalArchive.getLocalArchives(archiveConfig.archiveRoot));
-
+        const localArchivesInfo = await LocalArchive.getLocalArchives(archiveConfig.archiveRoot);
+        console.log(localArchivesInfo);
+       
     } else {
         console.error(err.stack);
     }

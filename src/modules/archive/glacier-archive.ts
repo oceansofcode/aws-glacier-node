@@ -2,7 +2,7 @@ import { Glacier } from 'aws-sdk';
 import { accountId } from '../glacier-config';
 import * as GlacierConfig from '../glacier-config';
 import { LocalArchive } from './local-archive';
-import fs, { promises as fsPromises } from 'fs';
+import { promises as fsPromises } from 'fs';
 
 export type MultiUploadInitParams = Required<Glacier.InitiateMultipartUploadInput>;
 export type UploadPartParams = Required<Glacier.UploadMultipartPartInput>;
@@ -68,8 +68,10 @@ export class GlacierArchive {
             range: `bytes ${ranges.rangeBottom}-${ranges.rangeTop}/*`
         };
 
-        this.glacier.uploadMultipartPart(partInfo, () => {
-            if (localArchive.finishedReading && localArchive.buffersRead.length === ++this.partsUploaded) {
+        this.glacier.uploadMultipartPart(partInfo, (err, data) => {
+            if (err) {
+                throw new Error(`AWS Error on upload: Name: ${err.name}, HTTP Code: ${err.statusCode}, Error Code: ${err.code}`);
+            } else if (localArchive.finishedReading && localArchive.buffersRead.length === ++this.partsUploaded) {
                 this.completeArchiveUpload(localArchive.buffersRead, Buffer.concat(localArchive.buffersRead).byteLength.toString());
             }
         });
