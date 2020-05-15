@@ -19,23 +19,23 @@ export class LocalArchive {
         return this.readComplete;
     }
 
-    get archiveName(): string {
-        return this.localArchiveInfo.archiveName;
+    get archivePath(): string | undefined {
+        return this.localArchiveInfo.archivePath;
     }
 
     get archiveFolder(): string {
         return this.localArchiveInfo.archiveFolder;
     }
 
-    get archivePath(): string | undefined {
-        return this.localArchiveInfo.archivePath;
+    get archiveName(): string {
+        return this.localArchiveInfo.archiveName;
     }
 
     constructor(private localArchiveInfo: LocalArchiveFileInfo) { }
 
     public static async getLocalArchives(archiveRoot: string): Promise<LocalArchiveFileInfo[]> {
-        let archives: LocalArchiveFileInfo[] = [];
         const dir = await fsPromises.opendir(archiveRoot);
+        let archives: LocalArchiveFileInfo[] = [];
 
         for await (const item of dir) {
             const itemPath = `${archiveRoot}/${item.name}`;
@@ -53,12 +53,12 @@ export class LocalArchive {
     public static createFileArchiveInfo(archivePath: string): LocalArchiveFileInfo {
         const splitFoldersItems = archivePath.split('/');
         const archiveName = splitFoldersItems[splitFoldersItems.length - 1];
-        const vaultName = splitFoldersItems[splitFoldersItems.length - 2].replace(/\s/, '_');
+        const archiveFolder = splitFoldersItems[splitFoldersItems.length - 2].replace(/\s/, '_');
 
         const fullFile: LocalArchiveFileInfo = {
-            archiveFolder: vaultName,
-            archiveName,
-            archivePath
+            archivePath,
+            archiveFolder,
+            archiveName
         };
 
         return fullFile;

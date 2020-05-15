@@ -23,10 +23,11 @@ config.logger = console;
 
 config.getCredentials(async err => {
     if (!err && config.credentials) {
-        console.log(`Access Key: ${colors.green(config.credentials.accessKeyId)}`);
+        console.log(`Access Key: ${colors.bgGreen(colors.black(config.credentials.accessKeyId))}\n`);
 
         const localArchivesInfo = await LocalArchive.getLocalArchives(archiveConfig.archiveRoot);
-        console.log(localArchivesInfo);
+        const luigiTest = localArchivesInfo.find(localArchiveInfo => localArchiveInfo.archiveName.toLowerCase().includes('luigi'));
+        console.log(luigiTest);
        
     } else {
         console.error(err.stack);
