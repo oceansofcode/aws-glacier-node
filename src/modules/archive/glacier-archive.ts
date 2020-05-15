@@ -55,6 +55,7 @@ export class GlacierArchive {
         if (uploadId) {
             this.partsUploaded = 0;
             this.uploadId = uploadId;
+            console.log(uploadId);
         }
     }
 

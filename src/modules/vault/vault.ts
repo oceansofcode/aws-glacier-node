@@ -23,15 +23,11 @@ export type InventoryJob = Glacier.GetJobOutputOutput;
 export class GlacierVault {
     private vaultArchives: GlacierArchive[];
 
-    get vaultName(): string {
-        return this.vaultInfo.VaultName;
-    }
-
     set currentVaultArchives(glacierArchives: GlacierArchive[]) {
         this.vaultArchives = glacierArchives;
     }
 
-    constructor(private glacier: Glacier, private vaultInfo: VaultInfo, glacierArchives?: GlacierArchive[]) {
+    constructor(private glacier: Glacier, private vaultName: string, glacierArchives?: GlacierArchive[]) {
         glacierArchives ? this.vaultArchives = glacierArchives : this.vaultArchives = [];
     }
 
@@ -49,13 +45,13 @@ export class GlacierVault {
         return listReturn.VaultList as VaultInfo[];
     }
 
-    public static async requestVaultInfo(glacier: Glacier, vaultName: string): Promise<VaultInfo> {
+    public async getVaultInfo(): Promise<VaultInfo> {
         const describeVaultInput: VaultParams = {
             accountId,
-            vaultName
+            vaultName: this.vaultName
         };
 
-        return await glacier.describeVault(describeVaultInput).promise() as VaultInfo;
+        return await this.glacier.describeVault(describeVaultInput).promise() as VaultInfo;
     }
 
     public async listVaultJobs(): Promise<VaultJobs> {
@@ -89,7 +85,7 @@ export class GlacierVault {
 
     public async deleteAllArchives(): Promise<void> {
         for (const glacierArchive of this.vaultArchives) {
-            await glacierArchive.deleteArchive();
+            glacierArchive.deleteArchive();
         }
 
         this.vaultArchives = [];
