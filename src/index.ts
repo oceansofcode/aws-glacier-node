@@ -24,17 +24,17 @@ config.getCredentials(async err => {
         const glacier = new Glacier();
 
         const localArchivesInfo = await LocalArchive.getLocalArchives(archiveConfig.archiveRoot);
-        const luigiTest = localArchivesInfo.find(localArchiveInfo => localArchiveInfo.archiveName.toLowerCase().includes('kotor'));
-        console.log(luigiTest);
+        const archiveFileInfo = localArchivesInfo.find(localArchiveInfo => localArchiveInfo.archiveName.toLowerCase().includes('ds'));
+        console.log(archiveFileInfo);
 
-        const kotorLocalArchive = new LocalArchive(luigiTest);
-        const kotorGlacierArchive = new GlacierArchive(glacier, { vaultName: kotorLocalArchive.archiveFolder, description: kotorLocalArchive.archiveName });
-        const kotorVault = new GlacierVault(glacier, kotorLocalArchive.archiveFolder);
+        const localArchive = new LocalArchive(archiveFileInfo);
+        const glacierArchive = new GlacierArchive(glacier, { vaultName: localArchive.archiveFolder, description: localArchive.archiveName });
+        const vault = new GlacierVault(glacier, localArchive.archiveFolder);
 
-        console.log(await kotorVault.listVaultUploads());
+        console.log(await vault.listVaultUploads());
 
-        await kotorGlacierArchive.initiateArchiveMultiUpload();
-        await kotorLocalArchive.readArchiveParts(kotorGlacierArchive.abortArchiveUpload.bind(kotorGlacierArchive), kotorGlacierArchive.uploadArchivePart.bind(kotorGlacierArchive));
+        await glacierArchive.initiateArchiveMultiUpload();
+        await localArchive.readArchiveParts(glacierArchive.abortArchiveUpload.bind(glacierArchive), glacierArchive.uploadArchivePart.bind(glacierArchive));
 
     } else {
         console.error(err.stack);

@@ -78,7 +78,7 @@ export class GlacierArchive {
             console.log(`Range: ${range}
             Parts Checksum: ${data.checksum}
             Parts Read: ${localArchive.buffersRead.length}
-            Parts Uploaded: ${++this.partsUploaded}
+            Parts Uploaded: ${this.partsUploaded}
             All Parts Read: ${localArchive.finishedReading}`);
             if (err) {
                 await this.abortArchiveUpload(this.uploadId);
@@ -102,13 +102,10 @@ export class GlacierArchive {
         };
 
         this.glacier.completeMultipartUpload(completeUploadInfo).promise().then(async res => {
-            const output = `Archive Uploaded: ${this.description}
-                            Archive Id: ${res.archiveId}
-                            Date: ${new Date()}\n`;
-
+            const output = `Archive Uploaded: ${this.description}\nArchive Id: ${res.archiveId}\nDate: ${new Date()}\n\n`;
             console.log(output);
 
-            await fsPromises.appendFile(`/vaults/${this.vaultName}`, output);
+            await fsPromises.appendFile(`../../../vaults/${this.vaultName}.txt`, output);
         }).catch(err => {
             console.log('Error occured while completing upload', err);
             this.abortArchiveUpload(this.uploadId);
